@@ -1,0 +1,296 @@
+erDiagram
+    tenants ||--o{ tenant_membership : "members"
+    tenants ||--|| subscriptions : "billed by"
+    tenants ||--o{ feature_flags : "toggles"
+    tenants ||--o{ schools : "schools"
+    tenants ||--o{ students : "owns"
+    tenants ||--o{ teachers : "owns"
+    tenants ||--o{ parents : "owns"
+    tenants ||--o{ classes : "owns"
+    tenants ||--o{ subjects : "owns"
+    tenants ||--o{ enrollments : "owns"
+    tenants ||--o{ attendance : "owns"
+    tenants ||--o{ assignments : "owns"
+    tenants ||--o{ submissions : "owns"
+    tenants ||--o{ grades : "owns"
+    tenants ||--o{ timetable : "owns"
+    tenants ||--o{ notifications : "owns"
+    tenants ||--o{ files : "owns"
+    tenants ||--o{ elab_runs : "owns"
+    tenants ||--o{ audit_logs : "owns"
+    tenants ||--o{ user_roles : "grants"
+
+    users ||--o{ tenant_membership : "joins"
+    users ||--o{ user_roles : "granted"
+    users ||--o{ refresh_tokens : "sessions"
+    users ||--o{ one_time_tokens : "tokens"
+    users ||--o| students : "profile"
+    users ||--o| teachers : "profile"
+    users ||--o| parents : "profile"
+    users ||--o{ notifications : "receives"
+    users ||--o{ files : "owns"
+    users ||--o{ elab_runs : "runs"
+    users ||--o{ audit_logs : "audited"
+    users ||--o{ attendance : "marks"
+
+    roles ||--o{ user_roles : "granted as"
+
+    parents ||--o{ parent_student : "links"
+    students ||--o{ parent_student : "linked"
+    students ||--o{ enrollments : "enrolled"
+    students ||--o{ attendance : "marked"
+    students ||--o{ submissions : "submits"
+    students ||--o{ grades : "graded"
+
+    teachers ||--o{ class_members : "rosters"
+    teachers ||--o{ teacher_subjects : "qualified"
+    teachers ||--o{ classes : "homeroom"
+    teachers ||--o{ assignments : "creates"
+    teachers ||--o{ timetable : "teaches"
+    teachers ||--o{ grades : "grades"
+
+    classes ||--o{ enrollments : "roster"
+    classes ||--o{ class_members : "staff"
+    classes ||--o{ class_subjects : "curriculum"
+    classes ||--o{ attendance : "marked in"
+    classes ||--o{ assignments : "assigned"
+    classes ||--o{ timetable : "scheduled"
+
+    subjects ||--o{ teacher_subjects : "taught by"
+    subjects ||--o{ class_subjects : "studied in"
+    subjects ||--o{ assignments : "covers"
+    subjects ||--o{ timetable : "scheduled"
+    subjects ||--o{ class_members : "scoped"
+
+    assignments ||--o{ submissions : "receives"
+    assignments ||--o{ assignment_files : "attaches"
+    submissions ||--|| grades : "graded as"
+    submissions ||--o| files : "attaches"
+    files ||--o{ assignment_files : "attached to"
+
+    tenants {
+        uuid id PK
+        string name
+        string slug UK
+        string status
+    }
+    subscriptions {
+        uuid id PK
+        uuid tenant_id FK, UK
+        string tier
+        string status
+        timestamptz trial_ends_at
+    }
+    feature_flags {
+        uuid id PK
+        uuid tenant_id FK
+        string key
+        boolean enabled
+    }
+    schools {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string code
+        string academic_year
+    }
+    users {
+        uuid id PK
+        string email UK
+        string password_hash
+        string first_name
+        string last_name
+        string status
+    }
+    roles {
+        uuid id PK
+        string name UK
+        string description
+    }
+    tenant_membership {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        string role
+        string status
+    }
+    user_roles {
+        uuid id PK
+        uuid user_id FK
+        uuid role_id FK
+        uuid tenant_id FK
+    }
+    refresh_tokens {
+        uuid id PK
+        uuid user_id FK
+        string jti_UK
+        timestamptz expires_at
+    }
+    one_time_tokens {
+        uuid id PK
+        uuid user_id FK
+        string purpose
+        string token_hash_UK
+    }
+    students {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK, UK
+        string student_identifier
+        date date_of_birth
+        string status
+    }
+    teachers {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK, UK
+        string employee_no
+        string full_name
+    }
+    parents {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK, UK
+        string full_name
+    }
+    parent_student {
+        uuid id PK
+        uuid tenant_id FK
+        uuid parent_id FK
+        uuid student_id FK
+        string relation
+    }
+    classes {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string grade_level
+        string section
+        string academic_year
+        uuid class_teacher_id FK
+        string status
+    }
+    class_members {
+        uuid id PK
+        uuid tenant_id FK
+        uuid class_id FK
+        string member_type
+        uuid teacher_id FK
+        uuid subject_id FK
+    }
+    subjects {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string code
+        string description
+    }
+    teacher_subjects {
+        uuid id PK
+        uuid tenant_id FK
+        uuid teacher_id FK
+        uuid subject_id FK
+    }
+    class_subjects {
+        uuid id PK
+        uuid tenant_id FK
+        uuid class_id FK
+        uuid subject_id FK
+    }
+    enrollments {
+        uuid id PK
+        uuid tenant_id FK
+        uuid student_id FK
+        uuid class_id FK
+        string academic_year
+        string status
+    }
+    attendance {
+        uuid id PK
+        uuid tenant_id FK
+        uuid student_id FK
+        uuid class_id FK
+        date date
+        string status
+        uuid marked_by FK
+    }
+    assignments {
+        uuid id PK
+        uuid tenant_id FK
+        uuid teacher_id FK
+        uuid class_id FK
+        uuid subject_id FK
+        string title
+        timestamptz due_at
+        string status
+    }
+    assignment_files {
+        uuid id PK
+        uuid tenant_id FK
+        uuid assignment_id FK
+        uuid file_id FK
+    }
+    submissions {
+        uuid id PK
+        uuid tenant_id FK
+        uuid assignment_id FK
+        uuid student_id FK
+        timestamptz submitted_at
+        text content
+        string status
+    }
+    grades {
+        uuid id PK
+        uuid tenant_id FK
+        uuid submission_id FK, UK
+        uuid student_id FK
+        uuid teacher_id FK
+        float score
+        float max_score
+        timestamptz graded_at
+    }
+    timetable {
+        uuid id PK
+        uuid tenant_id FK
+        uuid class_id FK
+        uuid teacher_id FK
+        uuid subject_id FK
+        int day_of_week
+        time start_time
+        time end_time
+        string room
+    }
+    notifications {
+        uuid id PK
+        uuid tenant_id FK
+        uuid recipient_id FK
+        string type
+        string title
+        timestamptz read_at
+    }
+    files {
+        uuid id PK
+        uuid tenant_id FK
+        uuid owner_id FK
+        string object_key_UK
+        string filename
+        string mime_type
+        bigint size
+    }
+    elab_runs {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        string language
+        string source_hash
+        string status
+        text stdout
+    }
+    audit_logs {
+        uuid id PK
+        uuid tenant_id FK
+        uuid actor_id FK
+        string action
+        string resource_type
+        string resource_id
+    }

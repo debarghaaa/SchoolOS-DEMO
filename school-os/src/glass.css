@@ -1,0 +1,622 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Glacier Slate monochrome + deep-slate anchor — single source of truth.
+     Scale runs ice-white → light cyan → light blue → steel; text runs
+     deep slate → slate gray. Token names are legacy; values are the palette. */
+  --color-alice-blue: #F0F7F8;
+  --color-lavender: #E0FBFC;
+  --color-lavender-2: #CFEFF3;
+  --color-periwinkle: #C2DFE3;
+  --color-periwinkle-2: #AED4DA;
+  --color-periwinkle-3: #9DB4C0;
+  --color-baby-blue-ice: #7CA3B2;
+  --color-text-primary: #253237;
+  --color-text-secondary: #5C6B73;
+  --color-text-muted: #75868E;
+  --color-text-disabled: #9DB4C0;
+  --color-icon-accent: #5C6B73;
+  --color-shadow-blue: #253237;
+
+  /* Restrained semantic accents — secondary to the monochrome system */
+  --color-warning: #7f652b;
+  --color-error: #a34d4d;
+  --color-success: #3a7350;
+
+  /* Component shadows: shadow-blue contact + white inner light */
+  --shadow-line: inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent);
+  --shadow-lift: 0 10px 26px -10px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent);
+  --shadow-card: 0 18px 40px -14px color-mix(in srgb, var(--color-shadow-blue) 22%, transparent);
+  --shadow-tab: 0 8px 18px -6px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent);
+  --shadow-brand: inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent), 0 10px 20px -8px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent);
+
+  --radius-glass: 28px;
+  --radius-panel: 20px;
+  --radius-control: 10px;
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.35s ease both;
+  --animate-scale-in: scale-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-slide-in-right: slide-in-right 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ---------- GlassSurface tokens (Glacier Slate monochrome) ----------
+   One ambient light source from the upper-left, shared by every surface.
+   NOTE: .glass-surface sets no border-radius — radius always comes from
+   Tailwind classes so each component controls its own curvature. */
+:root {
+  color-scheme: light;
+
+  /* Refractive rims: white bright upper-left -> periwinkle-2 lower-right */
+  --glass-edge: linear-gradient(135deg,
+    color-mix(in srgb, #ffffff 85%, transparent) 0%,
+    color-mix(in srgb, var(--color-periwinkle-2) 65%, transparent) 28%,
+    color-mix(in srgb, var(--color-baby-blue-ice) 45%, transparent) 52%,
+    color-mix(in srgb, var(--color-periwinkle-2) 65%, transparent) 76%,
+    color-mix(in srgb, var(--color-periwinkle-3) 60%, transparent) 100%);
+  --glass-edge-strong: linear-gradient(135deg,
+    color-mix(in srgb, #ffffff 90%, transparent) 0%,
+    color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent) 28%,
+    color-mix(in srgb, var(--color-baby-blue-ice) 50%, transparent) 52%,
+    color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent) 76%,
+    color-mix(in srgb, var(--color-periwinkle-3) 65%, transparent) 100%);
+  --glass-edge-soft: linear-gradient(135deg,
+    color-mix(in srgb, #ffffff 75%, transparent) 0%,
+    color-mix(in srgb, var(--color-periwinkle-2) 55%, transparent) 40%,
+    color-mix(in srgb, var(--color-baby-blue-ice) 45%, transparent) 100%);
+
+  --glass-shadow: 0 2px 8px color-mix(in srgb, var(--color-shadow-blue) 22%, transparent), 0 24px 55px color-mix(in srgb, var(--color-shadow-blue) 20%, transparent);
+  --glass-shadow-deep: 0 3px 10px color-mix(in srgb, var(--color-shadow-blue) 26%, transparent), 0 30px 65px color-mix(in srgb, var(--color-shadow-blue) 28%, transparent);
+  --glass-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(48px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Alice Blue atmosphere: periwinkle depth, baby-blue blooms, porcelain light —
+   never flat, never neon. */
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(90% 75% at 50% 42%, color-mix(in srgb, var(--color-periwinkle-3) 30%, transparent), transparent 72%),
+    radial-gradient(900px 500px at 12% -6%, color-mix(in srgb, var(--color-baby-blue-ice) 26%, transparent), transparent 60%),
+    radial-gradient(760px 520px at 88% 8%, color-mix(in srgb, var(--color-periwinkle-2) 24%, transparent), transparent 60%),
+    radial-gradient(820px 620px at 85% 95%, color-mix(in srgb, var(--color-periwinkle) 26%, transparent), transparent 62%),
+    radial-gradient(700px 560px at 8% 96%, color-mix(in srgb, var(--color-lavender-2) 30%, transparent), transparent 62%),
+    radial-gradient(1000px 700px at 50% 45%, color-mix(in srgb, #ffffff 60%, transparent), transparent 65%),
+    linear-gradient(135deg, var(--color-alice-blue) 0%, var(--color-lavender) 55%, var(--color-alice-blue) 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* The recognizable scene behind the glass: periwinkle band + white pools */
+.app-mesh::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(115deg, transparent 40%, color-mix(in srgb, var(--color-periwinkle-2) 35%, transparent) 47%, transparent 56%),
+    radial-gradient(560px 300px at 22% 18%, color-mix(in srgb, var(--color-periwinkle-3) 22%, transparent), transparent 65%),
+    radial-gradient(640px 360px at 80% 74%, color-mix(in srgb, var(--color-baby-blue-ice) 20%, transparent), transparent 65%),
+    radial-gradient(420px 420px at 62% 38%, color-mix(in srgb, #ffffff 55%, transparent), transparent 70%);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-periwinkle-3) 65%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* =====================================================================
+   GLASSSURFACE — one refractive material for every surface.
+   Each pane bends the LIVE backdrop (GPU displacement + per-channel
+   dispersion via the #glass-* SVG filters in <GlassDefs/>), finished
+   with a screen-blend baby-blue-ice light layer, a refractive rim and
+   deep shadow-blue shadows. Content above stays sharp. Blur is fallback only.
+   ===================================================================== */
+
+.glass-surface {
+  position: relative;
+  isolation: isolate; /* contains the screen-blend light layer */
+  border: 1px solid transparent;
+  --glass-veil: color-mix(in srgb, var(--color-alice-blue) 80%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, #ffffff 50%, transparent), color-mix(in srgb, #ffffff 50%, transparent)) padding-box,
+    linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+    linear-gradient(color-mix(in srgb, #ffffff 55%, transparent), color-mix(in srgb, #ffffff 55%, transparent)) padding-box,
+    var(--glass-edge) border-box;
+  box-shadow:
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, var(--color-periwinkle-2) 60%, transparent),
+    0 2px 8px color-mix(in srgb, var(--color-shadow-blue) 22%, transparent),
+    0 24px 55px color-mix(in srgb, var(--color-shadow-blue) 20%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+}
+.glass-surface[data-glass="secondary"] {
+  --glass-veil: color-mix(in srgb, var(--color-lavender) 68%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-lavender-2) 55%, transparent), color-mix(in srgb, var(--color-lavender-2) 55%, transparent)) padding-box,
+    linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+    linear-gradient(color-mix(in srgb, #ffffff 50%, transparent), color-mix(in srgb, #ffffff 50%, transparent)) padding-box,
+    var(--glass-edge-soft) border-box;
+  box-shadow:
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, var(--color-periwinkle-2) 55%, transparent),
+    0 2px 6px color-mix(in srgb, var(--color-shadow-blue) 18%, transparent),
+    0 14px 34px color-mix(in srgb, var(--color-shadow-blue) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 45%, transparent);
+}
+.glass-surface[data-glass="floating"] {
+  --glass-veil: color-mix(in srgb, var(--color-lavender-2) 60%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, #ffffff 45%, transparent), color-mix(in srgb, #ffffff 45%, transparent)) padding-box,
+    linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+    linear-gradient(color-mix(in srgb, #ffffff 60%, transparent), color-mix(in srgb, #ffffff 60%, transparent)) padding-box,
+    var(--glass-edge-strong) border-box;
+  box-shadow:
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, var(--color-periwinkle-2) 60%, transparent),
+    var(--glass-shadow-deep),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+}
+.glass-surface[data-glass="controls"] {
+  --glass-veil: color-mix(in srgb, var(--color-lavender-2) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
+    0 6px 16px -10px color-mix(in srgb, var(--color-shadow-blue) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 45%, transparent);
+}
+/* Elevated primary (hero bands, level-2 cards): a touch more presence */
+.glass-surface.glass-elevated {
+  --glass-veil: color-mix(in srgb, var(--color-lavender) 72%, transparent);
+  background:
+    linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+    linear-gradient(color-mix(in srgb, #ffffff 58%, transparent), color-mix(in srgb, #ffffff 58%, transparent)) padding-box,
+    var(--glass-edge) border-box;
+  box-shadow:
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, var(--color-periwinkle-2) 60%, transparent),
+    0 2px 8px color-mix(in srgb, var(--color-shadow-blue) 22%, transparent),
+    0 26px 60px color-mix(in srgb, var(--color-shadow-blue) 24%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+}
+
+/* ---- The refraction itself: GPU displacement of the live backdrop ---- */
+@supports (backdrop-filter: url(#glass-primary)) {
+  .glass-surface[data-glass="primary"] {
+    backdrop-filter: url(#glass-primary) saturate(1.22) brightness(1.04);
+    -webkit-backdrop-filter: url(#glass-primary) saturate(1.22) brightness(1.04);
+  }
+  .glass-surface[data-glass="secondary"] {
+    backdrop-filter: url(#glass-secondary) saturate(1.18) brightness(1.03);
+    -webkit-backdrop-filter: url(#glass-secondary) saturate(1.18) brightness(1.03);
+  }
+  .glass-surface[data-glass="floating"] {
+    backdrop-filter: url(#glass-floating) saturate(1.25) brightness(1.05);
+    -webkit-backdrop-filter: url(#glass-floating) saturate(1.25) brightness(1.05);
+  }
+  .glass-surface[data-glass="controls"] {
+    backdrop-filter: url(#glass-controls) saturate(1.20) brightness(1.04);
+    -webkit-backdrop-filter: url(#glass-controls) saturate(1.20) brightness(1.04);
+  }
+}
+
+/* ---- Graceful fallback: light alice optics where url() filters
+   are unavailable. Blur here is a stand-in, never the primary material. ---- */
+@supports not (backdrop-filter: url(#glass-primary)) {
+  .glass-surface[data-glass="primary"] {
+    --glass-veil: color-mix(in srgb, var(--color-alice-blue) 82%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 70%, transparent), color-mix(in srgb, #ffffff 70%, transparent)) padding-box,
+      var(--glass-edge) border-box;
+    backdrop-filter: blur(16px) saturate(1.25) brightness(1.04);
+    -webkit-backdrop-filter: blur(16px) saturate(1.25) brightness(1.04);
+  }
+  .glass-surface[data-glass="secondary"] {
+    --glass-veil: color-mix(in srgb, var(--color-lavender) 70%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 65%, transparent), color-mix(in srgb, #ffffff 65%, transparent)) padding-box,
+      var(--glass-edge-soft) border-box;
+    backdrop-filter: blur(10px) saturate(1.22);
+    -webkit-backdrop-filter: blur(10px) saturate(1.22);
+  }
+  .glass-surface[data-glass="floating"] {
+    --glass-veil: color-mix(in srgb, var(--color-lavender-2) 62%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 68%, transparent), color-mix(in srgb, #ffffff 68%, transparent)) padding-box,
+      var(--glass-edge-strong) border-box;
+    backdrop-filter: blur(20px) saturate(1.30) brightness(1.05);
+    -webkit-backdrop-filter: blur(20px) saturate(1.30) brightness(1.05);
+  }
+  .glass-surface[data-glass="controls"] {
+    --glass-veil: color-mix(in srgb, var(--color-lavender-2) 62%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 65%, transparent), color-mix(in srgb, #ffffff 65%, transparent)) padding-box,
+      var(--glass-edge-soft) border-box;
+    backdrop-filter: blur(8px) saturate(1.22);
+    -webkit-backdrop-filter: blur(8px) saturate(1.22);
+  }
+  .glass-surface.glass-elevated {
+    --glass-veil: color-mix(in srgb, var(--color-lavender) 74%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 72%, transparent), color-mix(in srgb, #ffffff 72%, transparent)) padding-box,
+      var(--glass-edge) border-box;
+  }
+}
+
+/* ---- Static light: elongated upper reflection + elliptical specular +
+   curved-corner glints, screen-blended over the refracted backdrop ---- */
+.glass-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(210px 72px at 20% 1%, color-mix(in srgb, #ffffff 38%, transparent), transparent 70%),
+    radial-gradient(130% 100% at 8% -18%, color-mix(in srgb, #ffffff 30%, transparent), transparent 48%),
+    radial-gradient(80px 80px at 100% 0%, color-mix(in srgb, var(--color-periwinkle-3) 30%, transparent), transparent 70%),
+    radial-gradient(110px 80px at 0% 100%, color-mix(in srgb, #ffffff 38%, transparent), transparent 70%),
+    radial-gradient(100px 70px at 90% 108%, color-mix(in srgb, var(--color-periwinkle-2) 22%, transparent), transparent 70%);
+  opacity: 0.55;
+  transition: opacity 350ms var(--glass-ease);
+}
+/* Nested surfaces stay quiet: top wash only, no specular */
+.glass-surface[data-glass="secondary"]::before {
+  background: radial-gradient(130% 100% at 8% -18%, color-mix(in srgb, var(--color-periwinkle-3) 20%, transparent), transparent 48%);
+  opacity: 0.35;
+}
+.glass-surface[data-glass="controls"]::before {
+  background: linear-gradient(180deg, color-mix(in srgb, #ffffff 40%, transparent), transparent 55%);
+  opacity: 0.40;
+}
+
+/* ---- Interaction comes from the optical material itself:
+   hover raises illumination + 1–2px lift, 300–400ms ---- */
+.glass-hover {
+  transition: transform 350ms var(--glass-ease), box-shadow 350ms var(--glass-ease);
+}
+.glass-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, var(--color-periwinkle-2) 55%, transparent),
+    0 4px 12px color-mix(in srgb, var(--color-shadow-blue) 26%, transparent),
+    0 30px 65px color-mix(in srgb, var(--color-shadow-blue) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+}
+.glass-hover:hover::before {
+  opacity: 0.85;
+}
+.glass-hover:active {
+  transform: translateY(-1px) scale(0.99);
+  --glass-veil: color-mix(in srgb, var(--color-lavender-2) 70%, transparent);
+}
+.glass-hover:active::before {
+  opacity: 0.35;
+}
+
+/* Selected state (selectable glass rows/cards): baby-blue-ice presence + ring */
+.glass-selected {
+  --glass-veil: color-mix(in srgb, var(--color-periwinkle-2) 35%, transparent);
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--color-baby-blue-ice) 65%, transparent),
+    inset 1px 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+    0 14px 34px color-mix(in srgb, var(--color-shadow-blue) 28%, transparent);
+}
+
+/* ---------- Controls: the same material at control scale ---------- */
+.btn-primary {
+  background: var(--color-periwinkle-3);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 0 color-mix(in srgb, #ffffff 60%, transparent), 0 8px 20px -8px color-mix(in srgb, var(--color-shadow-blue) 35%, transparent);
+  transition: transform 0.3s var(--glass-ease), box-shadow 0.3s ease, background 0.3s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  background: var(--color-baby-blue-ice);
+  box-shadow: inset 0 1px 0 0 color-mix(in srgb, #ffffff 65%, transparent), 0 12px 26px -8px color-mix(in srgb, var(--color-shadow-blue) 40%, transparent);
+}
+.btn-primary:active { transform: translateY(0) scale(0.985); background: var(--color-periwinkle-2); }
+
+.btn-glass {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  --glass-veil: color-mix(in srgb, var(--color-lavender-2) 62%, transparent);
+  background:
+    linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+    linear-gradient(color-mix(in srgb, #ffffff 52%, transparent), color-mix(in srgb, #ffffff 52%, transparent)) padding-box,
+    linear-gradient(135deg,
+      color-mix(in srgb, #ffffff 70%, transparent) 0%,
+      color-mix(in srgb, var(--color-periwinkle-2) 55%, transparent) 45%,
+      color-mix(in srgb, var(--color-periwinkle-3) 50%, transparent) 100%) border-box;
+  color: var(--color-text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
+    0 6px 16px -10px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent);
+  transition: transform 0.3s var(--glass-ease), box-shadow 0.3s ease;
+}
+@supports (backdrop-filter: url(#glass-primary)) {
+  .btn-glass {
+    backdrop-filter: url(#glass-controls) saturate(1.20) brightness(1.05);
+    -webkit-backdrop-filter: url(#glass-controls) saturate(1.20) brightness(1.05);
+  }
+}
+@supports not (backdrop-filter: url(#glass-primary)) {
+  .btn-glass {
+    --glass-veil: color-mix(in srgb, var(--color-lavender-2) 62%, transparent);
+    backdrop-filter: blur(8px) saturate(1.22);
+    -webkit-backdrop-filter: blur(8px) saturate(1.22);
+  }
+}
+.btn-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: linear-gradient(180deg, color-mix(in srgb, #ffffff 45%, transparent), transparent 60%);
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+.btn-glass:hover {
+  transform: translateY(-1px);
+  --glass-veil: color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
+    0 10px 22px -10px color-mix(in srgb, var(--color-shadow-blue) 32%, transparent);
+}
+.btn-glass:hover::before { opacity: 0.85; }
+.btn-glass:active { transform: translateY(0) scale(0.97); }
+.btn-glass:active::before { opacity: 0.3; }
+
+.btn-ghost {
+  color: var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+  border-radius: 10px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.btn-ghost:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-lavender-2) 70%, transparent);
+}
+
+/* Fields: control-scale glass. No ::before here — inputs are replaced
+   elements, so the top sheen is a background layer instead. */
+.field {
+  border: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #ffffff 35%, transparent), transparent 55%),
+    color-mix(in srgb, #ffffff 60%, transparent);
+  color: var(--color-text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+    0 4px 12px -8px color-mix(in srgb, var(--color-shadow-blue) 22%, transparent);
+  transition: box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+@supports (backdrop-filter: url(#glass-primary)) {
+  .field {
+    backdrop-filter: url(#glass-controls) saturate(1.18) brightness(1.04);
+    -webkit-backdrop-filter: url(#glass-controls) saturate(1.18) brightness(1.04);
+  }
+}
+@supports not (backdrop-filter: url(#glass-primary)) {
+  .field {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, #ffffff 35%, transparent), transparent 55%),
+      color-mix(in srgb, #ffffff 60%, transparent);
+    backdrop-filter: blur(8px) saturate(1.20);
+    -webkit-backdrop-filter: blur(8px) saturate(1.20);
+  }
+}
+.field::placeholder { color: var(--color-text-muted); }
+.field:focus-within,
+.field:focus {
+  outline: none;
+  border-color: var(--color-baby-blue-ice);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #ffffff 35%, transparent), transparent 55%),
+    color-mix(in srgb, #ffffff 60%, transparent);
+  box-shadow:
+    0 0 0 1px var(--color-baby-blue-ice),
+    0 0 0 4px color-mix(in srgb, var(--color-baby-blue-ice) 35%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent);
+}
+
+/* Native controls follow the light theme */
+input[type="range"] {
+  accent-color: var(--color-periwinkle-3);
+}
+
+/* ---------- Tables: glass container, light flat rows ---------- */
+.data-table thead th {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-lavender) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent);
+  white-space: nowrap;
+}
+.data-table tbody tr {
+  transition: background 0.2s ease;
+}
+.data-table tbody tr:nth-child(even) { background: color-mix(in srgb, #ffffff 30%, transparent); }
+.data-table tbody tr:hover { background: color-mix(in srgb, var(--color-lavender-2) 60%, transparent); }
+.data-table tbody tr[data-selected='true'] { background: color-mix(in srgb, var(--color-periwinkle) 55%, transparent); }
+.data-table tbody td {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* ---------- File tree ---------- */
+.tree-node {
+  font-family: var(--font-mono);
+  transition: background 0.22s ease, color 0.22s ease, box-shadow 0.25s ease;
+}
+.tree-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tree-children.open { grid-template-rows: 1fr; }
+.tree-children > div { overflow: hidden; }
+.tree-caret { transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
+.tree-caret.open { transform: rotate(90deg); }
+
+.tree-active {
+  background: color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-periwinkle-3) 60%, transparent) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow:
+    inset 2px 0 0 0 var(--color-baby-blue-ice),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--color-shadow-blue) 28%, transparent);
+}
+
+/* ---------- Scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-periwinkle-3) 60%, transparent) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-periwinkle-3) 55%, transparent);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Skeleton shimmer ---------- */
+.skeleton {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-periwinkle-2) 40%, transparent) 25%, color-mix(in srgb, #ffffff 55%, transparent) 50%, color-mix(in srgb, var(--color-periwinkle-2) 40%, transparent) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ---------- Code editor (alice-blue technical surface) ---------- */
+.code-panel {
+  background: linear-gradient(180deg, var(--color-alice-blue) 0%, var(--color-lavender) 100%);
+  border: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 70%, transparent);
+  box-shadow: inset 0 1px 0 0 color-mix(in srgb, #ffffff 60%, transparent), 0 18px 46px -14px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent);
+}
+.code-panel textarea, .code-panel pre {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  tab-size: 2;
+}
+
+/* Timetable grid lines */
+.tt-cell { border-left: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent); }
+.tt-row { border-top: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 50%, transparent); }
+
+/* Recharts polish */
+.recharts-cartesian-axis-tick text {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  fill: var(--color-text-secondary);
+}
+.recharts-tooltip-wrapper { outline: none; }
+.recharts-default-tooltip {
+  background: color-mix(in srgb, var(--color-alice-blue) 95%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-periwinkle-2) 60%, transparent) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-shadow-blue) 30%, transparent) !important;
+  font-family: var(--font-sans);
+}
+.recharts-tooltip-label { color: var(--color-text-primary) !important; }
+.recharts-tooltip-item { color: var(--color-text-secondary) !important; }
+
+/* Stagger helper */
+.stagger > * { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger > *:nth-child(3) { animation-delay: 0.14s; }
+.stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger > *:nth-child(5) { animation-delay: 0.26s; }
+.stagger > *:nth-child(6) { animation-delay: 0.32s; }
+
+/* ---------- Responsive refraction ----------
+   Tablet: one lightweight distortion map everywhere, controls go flat.
+   Mobile: light alice fallback — translucent, edged, luminous. */
+@media (max-width: 1023px) {
+  @supports (backdrop-filter: url(#glass-primary)) {
+    .glass-surface[data-glass] {
+      backdrop-filter: url(#glass-soft) saturate(1.18) brightness(1.03);
+      -webkit-backdrop-filter: url(#glass-soft) saturate(1.18) brightness(1.03);
+    }
+    .btn-glass, .field {
+      backdrop-filter: saturate(1.18) brightness(1.04);
+      -webkit-backdrop-filter: saturate(1.18) brightness(1.04);
+    }
+  }
+}
+@media (max-width: 767px) {
+  .glass-surface[data-glass] {
+    --glass-veil: color-mix(in srgb, var(--color-alice-blue) 82%, transparent);
+    background:
+      linear-gradient(var(--glass-veil), var(--glass-veil)) padding-box,
+      linear-gradient(color-mix(in srgb, #ffffff 72%, transparent), color-mix(in srgb, #ffffff 72%, transparent)) padding-box,
+      var(--glass-edge) border-box;
+    backdrop-filter: blur(12px) saturate(1.22);
+    -webkit-backdrop-filter: blur(12px) saturate(1.22);
+  }
+  .btn-glass, .field {
+    backdrop-filter: blur(6px) saturate(1.20);
+    -webkit-backdrop-filter: blur(6px) saturate(1.20);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .tree-children { transition: none; }
+  /* Static refraction is preserved — only movement is removed. */
+}

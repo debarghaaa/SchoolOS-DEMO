@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["node"],
+    "outDir": "/tmp/schoolos-audit",
+    "rootDir": ".."
+  },
+  "include": ["audit-consistency.ts", "../src/lib/data.ts", "../src/lib/scoped.ts", "../src/lib/presence.ts", "../src/lib/presence-demo.ts", "../src/lib/maintenance.ts", "../src/lib/maintenance-demo.ts", "../src/lib/platform-data.ts", "../src/lib/types.ts"]
+}

@@ -1,0 +1,182 @@
+# SchoolOS local development: one command boots the whole platform.
+#
+#   cp .env.example .env   # optional: every variable below has a dev default
+#   docker compose up --build
+#
+#   frontend  http://localhost:3000   (nginx → SPA, /api proxied to the backend)
+#   api       http://localhost:8000   (docs at /docs)
+#   minio     http://localhost:9001   (console; user/password in .env)
+#
+# Every secret is ${VAR:-dev-default}: committed defaults boot a laptop,
+# real deployments override them via environment (never bake secrets into
+# images). Production topology: docs/ARCHITECTURE.md.
+#
+# E-Lab notes: elab-worker drains ONLY the elab queue on this host and is
+# the sole container with Docker access. Build the execution images first
+# (elab/docker/build.sh) or runs fail closed with "backend unavailable".
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-schoolos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schoolos}
+      POSTGRES_DB: ${POSTGRES_DB:-schoolos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-schoolos}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: create the object-storage bucket the API expects.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin} &&
+      mc mb --ignore-existing local/$${S3_BUCKET:-schoolos}
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-schoolos}
+
+  api:
+    build: .
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: dev
+      SECRET_KEY: ${SECRET_KEY:-compose-demo-secret-key-0123456789abcdef-0123456789abcdef}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-schoolos}:${POSTGRES_PASSWORD:-schoolos}@postgres:5432/${POSTGRES_DB:-schoolos}
+      REDIS_URL: redis://redis:6379/0
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      STORAGE_BACKEND: s3
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-schoolos}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      API_BASE_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      RUN_MIGRATIONS: "true" # the api replica is the sole migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # General worker: notifications + periodic scans. No Docker access —
+  # it must never see untrusted code.
+  worker:
+    build: .
+    command: ["python", "-m", "app.workers.worker"]
+    environment:
+      ENV: dev
+      SECRET_KEY: ${SECRET_KEY:-compose-demo-secret-key-0123456789abcdef-0123456789abcdef}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-schoolos}:${POSTGRES_PASSWORD:-schoolos}@postgres:5432/${POSTGRES_DB:-schoolos}
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      WORKER_QUEUES: default
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # E-Lab worker: drains ONLY the elab queue, executes snippets in
+  # throwaway containers on this host. The SOLE container with Docker
+  # access; in production it runs on dedicated, isolated nodes.
+  elab-worker:
+    build: .
+    command: ["python", "-m", "app.workers.worker"]
+    environment:
+      ENV: dev
+      SECRET_KEY: ${SECRET_KEY:-compose-demo-secret-key-0123456789abcdef-0123456789abcdef}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-schoolos}:${POSTGRES_PASSWORD:-schoolos}@postgres:5432/${POSTGRES_DB:-schoolos}
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      WORKER_QUEUES: elab
+      RUN_MIGRATIONS: "false"
+      ELAB_BACKEND: docker
+      ELAB_TIMEOUT_SECONDS: 5
+      ELAB_MAX_OUTPUT_KB: 64
+      ELAB_MEMORY_MB: 256
+      ELAB_CPU_QUOTA: 50000
+      ELAB_PIDS_LIMIT: 64
+      ELAB_DAILY_RUNS_PER_USER: 100
+      ELAB_MAX_CONCURRENT_PER_USER: 2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../school-os
+      dockerfile: Dockerfile
+    ports:
+      - "3000:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

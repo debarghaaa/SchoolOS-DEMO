@@ -1,0 +1,5 @@
+# Dev/test-only dependencies. Production images install requirements.txt.
+-r requirements.txt
+pytest>=8.0
+ruff>=0.8
+mypy>=1.13

@@ -1,0 +1,246 @@
+# SchoolOS CI/CD: lint → typecheck → unit → security → build → integration → deploy.
+#
+# Triggers: every push/PR runs the PR gates. The heavyweight E-Lab
+# adversarial suite runs nightly + on manual dispatch (it builds three
+# execution images). Merges to main additionally publish images to GHCR.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *" # nightly E-Lab adversarial suite
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+jobs:
+  # ---------------- Backend: lint, typecheck, unit tests, dep audit ----------------
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: school-api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check app/ tests/
+
+      - name: Type check (mypy)
+        run: mypy app --ignore-missing-imports
+
+      - name: Unit tests
+        run: pytest -m "not needs_docker" -q -p no:warnings
+        env:
+          ENV: test
+
+      - name: Dependency audit (pip-audit)
+        run: pip-audit --strict
+
+  # ---------------- Frontend: lint, typecheck, build, dep audit ----------------
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school-os
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: school-os/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (oxlint)
+        run: npx oxlint
+
+      - name: Type check (tsc)
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependency audit (npm audit)
+        run: npm audit --audit-level=high
+
+  # ---------------- Secrets + source vulnerability scan ----------------
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+
+      - name: Source + IaC scan (trivy fs)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  # ---------------- Image builds + container scan ----------------
+  build:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -t schoolos/api:${{ github.sha }} school-api
+
+      - name: Build web image
+        run: docker build -t schoolos/web:${{ github.sha }} school-os
+
+      - name: Scan API image (trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: schoolos/api:${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+
+      - name: Scan web image (trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: schoolos/web:${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+
+  # ---------------- Boot integration: compose up, migrate, probe ----------------
+  integration:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Boot platform
+        run: docker compose -f school-api/docker-compose.yml up -d --build postgres redis minio api frontend
+        env:
+          SECRET_KEY: ci-integration-secret-key-0123456789abcdef
+
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ready; then echo; exit 0; fi
+            sleep 5
+          done
+          echo "API never became ready" >&2
+          docker compose -f school-api/docker-compose.yml logs api
+          exit 1
+
+      - name: Smoke checks
+        run: |
+          curl -sf http://localhost:8000/health
+          curl -sf http://localhost:8000/openapi.json -o /dev/null
+          curl -sf http://localhost:8000/metrics | grep -q schoolos_http_requests_total
+          curl -sf http://localhost:3000/ -o /dev/null
+          curl -sf http://localhost:3000/health
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f school-api/docker-compose.yml down -v
+
+  # ---------------- E-Lab adversarial suite (nightly / manual) ----------------
+  elab-adversarial:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: school-api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Build execution images
+        run: elab/docker/build.sh
+
+      - name: Adversarial tests (real containers)
+        run: pytest tests/test_elab_docker.py -q -p no:warnings
+        env:
+          ENV: test
+          ELAB_BACKEND: docker
+
+  # ---------------- Publish images (main only) ----------------
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, security, build, integration]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: school-api
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/api:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v5
+        with:
+          context: school-os
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/web:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/web:latest
+
+      # --- Rollout (wire to your platform; see docs/ARCHITECTURE.md) ---
+      # Kubernetes example:
+      #   - uses: azure/setup-kubectl@v4
+      #   - run: |
+      #       kubectl set image deploy/schoolos-api \
+      #         api=ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+      #       kubectl rollout status deploy/schoolos-api
+      # Single-host example:
+      #   - run: ssh prod 'cd /srv/schoolos && VERSION=${{ github.sha }} docker compose up -d'
+      - name: Rollout placeholder
+        run: |
+          echo "Images published. Wire the rollout step above to your platform"
+          echo "(kubectl set image / compose pull && up). See docs/ARCHITECTURE.md."

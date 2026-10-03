@@ -1,0 +1,20 @@
+[project]
+name = "schoolos-api"
+version = "1.0.0"
+description = "Secure multi-tenant SaaS School Management Platform API"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "needs_docker: requires a Docker daemon with the elab execution images",
+]
+
+[tool.alembic]
+script_location = "alembic"
+
+# Lint gate: runtime-breaking syntax (E9) + pyflakes (F). Broader style
+# rules (I/UP/B, formatting) are tech debt tracked outside the gate.
+[tool.ruff]
+select = ["E9", "F"]
